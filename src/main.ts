@@ -1,49 +1,50 @@
-import { createIndexedDBFileSystem, createWorkbench, loadBuiltinTheme, registerBuiltinLanguages } from 'minwebide';
-import { demoCustomEditors } from './customEditors';
-import { demoRunners } from './runners';
-import { sampleWorkspace } from './sampleWorkspace';
+import { loadBuiltinTheme, registerBuiltinLanguages } from 'minwebide';
+import { openIde } from './ide';
+import { renderLanding } from './landing';
+import { getProject } from './projects';
 
-/** A sample PNG, generated on the fly, to exercise the binary file path. */
-async function generateSampleImage(): Promise<Uint8Array> {
-	const canvas = document.createElement('canvas');
-	canvas.width = 320;
-	canvas.height = 200;
-	const ctx = canvas.getContext('2d')!;
-	const gradient = ctx.createLinearGradient(0, 0, 320, 200);
-	gradient.addColorStop(0, '#0078d4');
-	gradient.addColorStop(1, '#4ec9b0');
-	ctx.fillStyle = gradient;
-	ctx.fillRect(0, 0, 320, 200);
-	ctx.fillStyle = 'white';
-	ctx.font = 'bold 28px sans-serif';
-	ctx.textAlign = 'center';
-	ctx.fillText('minwebide', 160, 108);
-	const blob = await new Promise<Blob>((resolve, reject) =>
-		canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png'));
-	return new Uint8Array(await blob.arrayBuffer());
-}
+// Routes:
+//   #/                     project picker (landing page)
+//   #/project/<id>         the IDE, opened on that project's file system
 
-async function main(): Promise<void> {
-	const fs = await createIndexedDBFileSystem({ dbName: 'minwebide-demo' });
-	await fs.seed({
-		...sampleWorkspace,
-		'/assets/banner.png': await generateSampleImage(),
-	});
+async function start(): Promise<void> {
+	const app = document.getElementById('app')!;
 
+	// one-time global setup: theme + languages are shared by all views
 	const theme = await loadBuiltinTheme('dark_modern');
 	await registerBuiltinLanguages(theme);
 
-	const workbench = createWorkbench(document.getElementById('app')!, {
-		fileSystem: fs,
-		theme,
-		workspaceName: 'demo workspace',
-		customEditors: demoCustomEditors,
-	});
-	for (const runner of demoRunners) {
-		workbench.registerRunner(runner);
-	}
+	let current: { dispose(): void } | undefined;
+	let navigating = false;
 
-	await workbench.openFile(fs.root.with({ path: '/README.md' }));
+	const route = async () => {
+		if (navigating) {
+			return;
+		}
+		navigating = true;
+		try {
+			current?.dispose();
+			current = undefined;
+			app.textContent = '';
+
+			const match = location.hash.match(/^#\/project\/([a-z0-9]+)/i);
+			if (match) {
+				const project = getProject(match[1]);
+				if (project) {
+					current = await openIde(app, project, theme);
+					return;
+				}
+				// unknown project id: fall through to the landing page
+				history.replaceState(null, '', '#/');
+			}
+			current = renderLanding(app, theme);
+		} finally {
+			navigating = false;
+		}
+	};
+
+	window.addEventListener('hashchange', route);
+	await route();
 }
 
-main();
+start();

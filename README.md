@@ -6,7 +6,10 @@ system persisted in your browser's IndexedDB.
 
 **Live site:** https://concept-collection.github.io/minwebide-demo/
 
-Things to try:
+The landing page manages **projects**: each project is its own workspace in
+your browser's IndexedDB (create / rename / duplicate / delete), and the open
+project is addressed in the URL as `#/project/<id>`. Create a **sample
+project** to see the showcase content, then try:
 
 - Open files from the Explorer; edit and press **Ctrl+S**; reload — changes persist.
 - `data/measurements.csv` opens as a table; `README.md` has a markdown preview
@@ -14,6 +17,7 @@ Things to try:
 - Open `scripts/sine-wave.js` and press **▶**: console output goes to the
   bottom Output panel, plots render in the secondary side bar.
 - Search across files from the activity bar.
+- The project name in the status bar takes you back to the project list.
 
 ## Development
 
